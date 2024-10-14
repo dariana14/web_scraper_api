@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        #dashboard {
+            display: none;
+        }
+        #loadingIndicator {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<h1>Toodete töölaud</h1>
+
+<!-- Otsingu vorm -->
+<div>
+    <input type="text" id="searchQuery" placeholder="http://localhost:8000/index.php" value="http://localhost:8000/index.php"/>
+    <button id="searchButton">Otsi</button>
+</div>
+
+<div id="loadingIndicator">
+    <p>info loading...</p>
+<!--    <img src="https://i.gifer.com/ZZ5H.gif" alt="Laeb..." width="50" />-->
+</div>
+
+<!-- Töölaud -->
+<div id="dashboard">
+    <!-- Tabel kategooriate jaoks -->
+    <h2>Kategooriad</h2>
+    <table id="categoryTable" border="1">
+        <thead>
+        <tr>
+            <th>Kategooria</th>
+            <th>Toodete arv</th>
+        </tr>
+        </thead>
+        <tbody>
+        <!-- Kategooriad tulevad siia -->
+        </tbody>
+    </table>
+
+    <!-- Graafikud -->
+    <h2>Kategooriate ringgraafik</h2>
+    <div style="width: 50%; height: 50%;">
+        <canvas id="categoryChart"></canvas>
+    </div>
+
+    <h2>Hinnaklassi jaotus</h2>
+
+    <div style="width: 50%; height: 50%;">
+        <canvas id="priceChart"></canvas>
+    </div>
+</div>
+
+<script>
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    document.getElementById('searchButton').addEventListener('click', function() {
+        const query = document.getElementById('searchQuery').value;
+        loadingIndicator.style.display = 'block';
+
+        fetch(query)
+            .then(response => response.json())
+            .then(data => {
+                loadingIndicator.style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+
+                displayCategories(data.categories);
+                drawCategoryChart(data.categories);
+                drawPriceChart(data.products);
+            })
+            .catch(error => console.error('API päring ebaõnnestus:', error));
+    });
+
+    // Kategooriate tabeli kuvamine
+    function displayCategories(categories) {
+        const tableBody = document.getElementById('categoryTable').querySelector('tbody');
+        tableBody.innerHTML = ''; // Tabeli puhastamine
+
+        categories.forEach(category => {
+            const row = `<tr>
+                    <td>${category.name}</td>
+                    <td>${category.product_count || 'Puudub info'}</td>
+                </tr>`;
+            tableBody.innerHTML += row;
+        });
+    }
+
+    // Kategooriate ringgraafik
+    function drawCategoryChart(categories) {
+        const ctx = document.getElementById('categoryChart').getContext('2d');
+        const labels = categories.map(cat => cat.name);
+        const data = categories.map(cat => cat.product_count || 0);
+
+        new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Toodete arv',
+                    data: data,
+                    backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'],
+                }]
+            },
+            options: {
+                responsive: true
+            }
+        });
+    }
+
+    // Hinnaklassi tulpdiagramm
+    function drawPriceChart(products) {
+        const ctx = document.getElementById('priceChart').getContext('2d');
+
+        // Jaota tooted hinnavahemike järgi
+        const priceRanges = {
+            '0-30€': 0,
+            '30-50€': 0,
+            '50-100€': 0,
+            '100-200€': 0,
+            '200€+': 0
+        };
+
+        products.forEach(product => {
+            const price = parseFloat(product.price);
+            if (price < 30) {
+                priceRanges['0-30€']++;
+            } else if (price < 50) {
+                priceRanges['30-50€']++;
+            } else if (price < 100) {
+                priceRanges['50-100€']++;
+            } else if (price < 200) {
+                priceRanges['100-200€']++;
+            } else {
+                priceRanges['200€+']++;
+            }
+        });
+
+        // Andmete visualiseerimine tulpdiagrammis
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(priceRanges),
+                datasets: [{
+                    label: 'Toodete arv',
+                    data: Object.values(priceRanges),
+                    backgroundColor: '#36A2EB',
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+</script>
+</body>
+</html>
